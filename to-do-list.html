@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Interactive To‑Do List</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --muted: #94a3b8;
+      --text: #e5e7eb;
+      --accent: #22d3ee;
+      --accent-2: #a78bfa;
+      --danger: #ef4444;
+      --success: #10b981;
+      --border: #1f2937;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 600px at 10% -10%, rgba(167,139,250,.15), transparent),
+                  radial-gradient(900px 500px at 110% 10%, rgba(34,211,238,.15), transparent), var(--bg);
+      color: var(--text);
+      min-height: 100svh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .app {
+      width: 100%;
+      max-width: 840px;
+      background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    header {
+      padding: 22px 24px 4px;
+    }
+    .title { font-size: clamp(20px, 4vw, 28px); font-weight: 800; letter-spacing: .3px; }
+    .subtitle { color: var(--muted); font-size: 14px; margin-top: 4px; }
+
+    .controls { display: grid; gap: 10px; grid-template-columns: 1fr auto auto; padding: 16px 24px 20px; }
+    .input, select, button, .search {
+      border-radius: 12px; border: 1px solid var(--border); background: #0b1220; color: var(--text);
+      padding: 12px 14px; font-size: 14px; outline: none;
+    }
+    .input:focus, .search:focus, select:focus { box-shadow: 0 0 0 2px #22d3ee44; }
+    .add-btn { background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: #0b1220; font-weight: 700; border: 0; cursor: pointer; }
+    .add-btn:active { transform: translateY(1px); }
+
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 24px 16px; align-items: center; }
+    .pill { padding: 8px 12px; border-radius: 999px; border: 1px solid var(--border); background:#0b1220; font-size: 13px; cursor: pointer; }
+    .pill.active { border-color: var(--accent); box-shadow: 0 0 0 2px #22d3ee33 inset; }
+    .spacer { flex: 1; }
+    .muted { color: var(--muted); font-size: 13px; }
+
+    .list {
+      display: grid; gap: 10px; padding: 8px 8px 16px; max-height: 55svh; overflow: auto;
+    }
+    .card { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 12px; border: 1px solid var(--border); background: #0b1220; border-radius: 14px; box-shadow: 0 6px 16px rgba(0,0,0,.25); }
+    .card.dragging { opacity: .6; outline: 2px dashed var(--accent); }
+    .card .text { display: grid; gap: 6px; }
+    .task-title { font-weight: 600; line-height: 1.35; }
+    .task-title[contenteditable="true"] { outline: 2px solid #22d3ee55; border-radius: 6px; padding: 2px 4px; }
+    .meta { display:flex; gap:10px; align-items:center; font-size: 12px; color: var(--muted); }
+    .badge { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); }
+    .pri-High { border-color: #f59e0b; color: #fbbf24; }
+    .pri-Medium { border-color: #60a5fa; color: #93c5fd; }
+    .pri-Low { border-color: #10b981; color: #6ee7b7; }
+
+    .actions { display: flex; gap: 8px; }
+    .icon-btn { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border); background: #0b1220; cursor: pointer; }
+    .icon-btn:hover { box-shadow: 0 0 0 2px #ffffff0f inset; }
+    .icon { width: 18px; height: 18px; fill: currentColor; }
+    .done { opacity: .6; text-decoration: line-through; }
+
+    .empty { text-align: center; color: var(--muted); padding: 24px; border: 1px dashed var(--border); border-radius: 12px; margin: 0 16px 16px; }
+
+    footer { display:flex; justify-content: space-between; align-items:center; padding: 12px 16px 20px; }
+    .clear { border-color: transparent; background: #1f2937; }
+
+    @media (max-width: 680px) {
+      .controls { grid-template-columns: 1fr auto; }
+      .controls select { display:none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app" role="application" aria-label="To‑Do App">
+    <header>
+      <div class="title">🗒️ Interactive To‑Do</div>
+      <div class="subtitle">Add tasks, reorder by drag‑and‑drop, filter, edit, and persist in your browser.</div>
+    </header>
+
+    <form id="newTask" class="controls" autocomplete="off">
+      <input id="taskInput" class="input" name="task" placeholder="What do you need to do? (press Enter)" required />
+      <select id="priority">
+        <option>Medium</option>
+        <option>High</option>
+        <option>Low</option>
+      </select>
+      <button type="submit" class="add-btn">Add</button>
+      <input id="search" class="search" placeholder="Search tasks…" aria-label="Search tasks" style="grid-column: 1 / -1;" />
+    </form>
+
+    <div class="toolbar">
+      <div id="filters">
+        <button class="pill active" data-filter="all">All</button>
+        <button class="pill" data-filter="active">Active</button>
+        <button class="pill" data-filter="completed">Completed</button>
+      </div>
+      <div class="spacer"></div>
+      <div class="muted"><span id="leftCount">0</span> left</div>
+    </div>
+
+    <main id="list" class="list" aria-live="polite"></main>
+
+    <div id="empty" class="empty" hidden>
+      No tasks yet. Add your first task above ✨
+    </div>
+
+    <footer>
+      <button id="clearCompleted" class="pill clear">Clear Completed</button>
+      <div class="muted">Drag tasks to reorder • Auto‑saved</div>
+    </footer>
+  </div>
+
+  <template id="item-template">
+    <div class="card" draggable="true">
+      <input type="checkbox" aria-label="Toggle complete" />
+      <div class="text">
+        <div class="task-title" contenteditable="false"></div>
+        <div class="meta">
+          <span class="badge pri"></span>
+          <span class="created"></span>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="icon-btn edit" title="Edit" aria-label="Edit">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"/></svg>
+        </button>
+        <button class="icon-btn delete" title="Delete" aria-label="Delete">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M6 7h12l-1 14H7L6 7zm3-3h6l1 2H8l1-2z"/></svg>
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    // ---- Simple To‑Do app with localStorage & drag‑drop ----
+    const $ = (sel, el=document) => el.querySelector(sel);
+    const $$ = (sel, el=document) => [...el.querySelectorAll(sel)];
+
+    const STORAGE_KEY = 'todos.v1';
+
+    /** @type {Array<{id:string,text:string,done:boolean,created:number,priority:string,order:number}>} */
+    let todos = load();
+
+    const list = $('#list');
+    const template = $('#item-template');
+    const leftCount = $('#leftCount');
+    const search = $('#search');
+    const emptyState = $('#empty');
+
+    const state = { filter: 'all', query: '' };
+
+    function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(todos)); }
+    function load() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? []; } catch { return []; } }
+
+    function uid() { return Math.random().toString(36).slice(2, 9); }
+
+    function render() {
+      list.innerHTML = '';
+      const filtered = todos
+        .filter(t => state.filter === 'all' || (state.filter === 'active' ? !t.done : t.done))
+        .filter(t => t.text.toLowerCase().includes(state.query.toLowerCase()));
+
+      emptyState.hidden = filtered.length !== 0 || todos.length !== 0 ? true : false;
+      if (todos.length === 0) emptyState.hidden = false;
+
+      filtered.sort((a,b)=> a.order - b.order).forEach(t => list.appendChild(view(t)));
+      leftCount.textContent = todos.filter(t => !t.done).length;
+    }
+
+    function view(t) {
+      const node = template.content.firstElementChild.cloneNode(true);
+      const checkbox = $('input[type="checkbox"]', node);
+      const title = $('.task-title', node);
+      const pri = $('.pri', node);
+      const created = $('.created', node);
+
+      node.dataset.id = t.id;
+      checkbox.checked = t.done;
+      title.textContent = t.text;
+      title.classList.toggle('done', t.done);
+      pri.textContent = t.priority + ' priority';
+      pri.classList.add('pri-' + t.priority);
+      created.textContent = new Date(t.created).toLocaleString();
+
+      checkbox.addEventListener('change', () => {
+        t.done = checkbox.checked; title.classList.toggle('done', t.done); save(); render();
+      });
+
+      $('.edit', node).addEventListener('click', () => startEdit(title, t));
+      title.addEventListener('dblclick', () => startEdit(title, t));
+
+      $('.delete', node).addEventListener('click', () => {
+        todos = todos.filter(x => x.id !== t.id); save(); render();
+      });
+
+      // Drag & drop
+      node.addEventListener('dragstart', (e) => { node.classList.add('dragging'); e.dataTransfer.setData('text/plain', t.id); });
+      node.addEventListener('dragend', () => node.classList.remove('dragging'));
+      list.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const after = getDragAfterElement(list, e.clientY);
+        const id = e.dataTransfer.getData('text/plain');
+        const dragged = todos.find(x => x.id === id);
+        if (!dragged) return;
+        if (after == null) list.appendChild($(`[data-id="${id}"]`));
+        else list.insertBefore($(`[data-id="${id}"]`), after);
+      });
+      list.addEventListener('drop', () => {
+        // recompute order based on DOM position
+        $$('.card', list).forEach((el, idx) => {
+          const t = todos.find(x => x.id === el.dataset.id);
+          if (t) t.order = idx;
+        });
+        save(); render();
+      });
+
+      return node;
+    }
+
+    function getDragAfterElement(container, y) {
+      const els = [...container.querySelectorAll('.card:not(.dragging)')];
+      return els.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) return { offset, element: child };
+        else return closest;
+      }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    function startEdit(titleEl, t) {
+      titleEl.setAttribute('contenteditable', 'true');
+      titleEl.focus();
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(titleEl); range.collapse(false); sel.removeAllRanges(); sel.addRange(range);
+      const finish = () => {
+        titleEl.removeAttribute('contenteditable');
+        t.text = titleEl.textContent.trim() || t.text; save(); render();
+      };
+      titleEl.addEventListener('blur', finish, { once: true });
+      titleEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); titleEl.blur(); } });
+    }
+
+    $('#newTask').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = $('#taskInput').value.trim();
+      if (!text) return;
+      const priority = $('#priority').value;
+      todos.push({ id: uid(), text, done: false, created: Date.now(), priority, order: todos.length });
+      e.target.reset(); save(); render();
+    });
+
+    $('#filters').addEventListener('click', (e) => {
+      if (e.target.matches('.pill')) {
+        $$('.pill', e.currentTarget).forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        state.filter = e.target.dataset.filter; render();
+      }
+    });
+
+    $('#clearCompleted').addEventListener('click', () => {
+      todos = todos.filter(t => !t.done); save(); render();
+    });
+
+    search.addEventListener('input', () => { state.query = search.value; render(); });
+
+    // First paint
+    render();
+  </script>
+</body>
+</html>
